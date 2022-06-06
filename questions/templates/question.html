@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+body{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #6665ee;
+}
+::selection{
+  color: #fff;
+  background: #6665ee;
+}
+.wrapper{
+  background: #fff;
+  border-radius: 15px;
+  padding: 25px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0px 5px 10px rgba(0,0,0,0.1);
+}
+.wrapper header{
+  font-size: 22px;
+  font-weight: 600;
+}
+.wrapper .poll-area{
+  margin: 20px 0 15px 0;
+}
+.poll-area label{
+  display: block;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  padding: 8px 15px;
+  border: 2px solid #e6e6e6;
+  transition: all 0.2s ease;
+}
+.poll-area label:hover{
+  border-color: #ddd;
+}
+label.selected{
+  border-color: #6665ee!important;
+}
+label .row{
+  display: flex;
+  pointer-events: none;
+  justify-content: space-between;
+}
+label .row .column{
+  display: flex;
+  align-items: center;
+}
+label .row .circle{
+  height: 19px;
+  width: 19px;
+  display: block;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  margin-right: 10px;
+  position: relative;
+}
+label.selected .row .circle{
+  border-color: #6665ee;
+}
+label .row .circle::after{
+  content: "";
+  height: 11px;
+  width: 11px;
+  background: #6665ee;
+  border-radius: inherit;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  display: none;
+}
+.poll-area label:hover .row .circle::after{
+  display: block;
+  background: #e6e6e6;
+}
+label.selected .row .circle::after{
+  display: block;
+  background: #6665ee!important;
+}
+label .row span{
+  font-size: 16px;
+  font-weight: 500;
+}
+label .row .percent{
+  display: none;
+}
+label .progress{
+  height: 7px;
+  width: 100%;
+  position: relative;
+  background: #f0f0f0;
+  margin: 8px 0 3px 0;
+  border-radius: 30px;
+  display: none;
+  pointer-events: none;
+}
+label .progress:after{
+  position: absolute;
+  content: "";
+  height: 100%;
+  background: #ccc;
+  width: calc(1% * var(--w));
+  border-radius: inherit;
+  transition: all 0.2s ease;
+}
+label.selected .progress::after{
+  background: #6665ee;
+}
+label.selectall .progress,
+label.selectall .row .percent{
+  display: block;
+}
+input[type="radio"],
+input[type="checkbox"]{
+  display: none;
+}
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>{{ question.question_text }}</header>
+        <div class="poll-area">
+          <input type="checkbox" name="poll" id="opt-1">
+          <input type="checkbox" name="poll" id="opt-2">
+          <input type="checkbox" name="poll" id="opt-3">
+          <input type="checkbox" name="poll" id="opt-4">
+
+          {% for answer in question.answers.all %}
+          <label for="opt-{{ forloop.counter }}" data-answer="{{ answer.uid }}" class="opt-{{ forloop.counter }}">
+            <div class="row">
+              <div class="column">
+                <span class="circle"></span>
+                <span class="text">{{ answer.answer_text }}</span>
+              </div>
+              <span class="percent">30%</span>
+            </div>
+            <div class="progress" style='--w:30;'></div>
+          </label>
+          {% endfor %}
+
+
+        </div>
+      </div>
+
+
+
+      <script>
+        async function call_api(question_uid, answer_uid){
+            console.log("API called")
+            const rawResponse = await fetch('/api/save_question_result/', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    question_uid: question_uid,
+                    answer_uid: answer_uid
+                })
+            }). then(result => result.json())
+            .then(data => {
+                console.log(data)
+                var elements = document.querySelectorAll('.percent')
+                var progress = document.querySelectorAll('.progress')
+                for(var i = 0; i < elements.length; i++){
+                    elements[i].textContent = data.data[i]
+                    progress[i].style = `--w:${data.data[i]}`
+                }
+            })
+
+        }
+
+
+        const options = document.querySelectorAll("label");
+        var answer_uid = null
+        var question_uid = "{{ question.uid }}"
+        for (let i = 0; i < options.length; i++) {
+          options[i].addEventListener("click", ()=>{
+            for (let j = 0; j < options.length; j++) {
+                //console.log("event added")
+                answer_uid = options[i].dataset.answer  
+
+              if(options[j].classList.contains("selected")){
+                options[j].classList.remove("selected");
+              }
+            }
+        
+            options[i].classList.add("selected");
+            for (let k = 0; k < options.length; k++) {
+              options[k].classList.add("selectall");
+            }
+        
+            let forVal = options[i].getAttribute("for");
+            let selectInput = document.querySelector("#"+forVal);
+            let getAtt = selectInput.getAttribute("type");
+            if(getAtt == "checkbox"){
+              selectInput.setAttribute("type", "radio");
+            }else if(selectInput.checked == true){
+              options[i].classList.remove("selected");
+              selectInput.setAttribute("type", "checkbox");
+            }
+        
+            let array = [];
+            for (let l = 0; l < options.length; l++) {
+              if(options[l].classList.contains("selected")){
+                array.push(l);
+              }
+            }
+            if(array.length == 0){
+              for (let m = 0; m < options.length; m++) {
+                options[m].removeAttribute("class");
+              }
+            }
+            call_api(question_uid, answer_uid)
+            console.log(answer_uid)
+
+          });
+        }
+
+      </script>
+</body>
+</html>
